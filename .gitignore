@@ -1,0 +1,13 @@
+.env
+credentials.json
+output/
+task.md
+vacancy.md
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.qoder/
+.idea/
+.vscode/
+.DS_Store
