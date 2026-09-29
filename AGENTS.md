@@ -58,6 +58,8 @@
 - `git add` только перечисленными файлами. Команды `git add .` и `git add -A`
   запрещены.
 - Запрещены: `push` в `main`/`master`, `force push`, `rebase`, `commit --amend`.
+- Переписывание истории и force push — только по явной санкции Tech Lead в
+  тексте задачи. Вне такой санкции правила выше абсолютны.
 - Сообщения коммитов — conventional commits: `chore:`, `feat:`, `fix:`,
   `test:`, `docs:`, `refactor:`.
 

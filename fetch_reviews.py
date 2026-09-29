@@ -198,8 +198,10 @@ def probe_counters() -> dict[str, Any] | None:
     """Зонд гипотезы «счётчики `count*` — по всему магазину, а не по артикулу».
 
     Спрашивает другой артикул и другую ветку и сравнивает `countArchive` /
-    `countUnanswered` с базовым замером. Диагностический: при сбое сбор не
-    останавливается.
+    `countUnanswered` с базовым замером. Возвращает только замеры: вывод по
+    двум запросам слишком ненадёжен, чтобы класть его в артефакт, — финальный
+    verdict даёт `verify_collected_totals` после сбора. Диагностический зонд:
+    при сбое сбор не останавливается.
     """
     if len(NM_IDS) < 2:
         logger.warning("В NM_IDS меньше двух артикулов — зонд счётчиков не проводится")
@@ -219,27 +221,27 @@ def probe_counters() -> dict[str, Any] | None:
     logger.info("Зонд счётчиков: новый ответ %s", current)
 
     if previous is None:
-        conclusion = "базовый замер недоступен, вывод сделать нельзя"
         matches = None
+        provisional = "базовый замер недоступен, предварительный вывод сделать нельзя"
     else:
         logger.info("Зонд счётчиков: базовый дамп %s", previous)
         shared = sorted(set(previous) & set(current))
         matches = bool(shared) and all(previous[key] == current[key] for key in shared)
         if matches:
-            conclusion = (
-                "Счётчики совпали при другом nmId и другой ветке isAnswered — значит "
-                "`countArchive`/`countUnanswered` глобальные по магазину и не годятся "
-                "как поартикульные количества. Сколько отзывов по артикулу — считать по "
-                "фактически собранным страницам."
+            provisional = (
+                "счётчики совпали при другом nmId и другой ветке — похоже на "
+                "общемагазинные"
             )
         else:
-            conclusion = (
-                "Счётчики разошлись между запросами — они зависят от артикула или от "
-                "фильтра, использовать их как количество по артикулу нельзя без "
-                "дополнительной проверки."
+            provisional = (
+                "счётчики разошлись — зависят от артикула или от фильтра, "
+                "без сверки с собранными данными вывод не делаем"
             )
 
-    logger.info("Зонд счётчиков, вывод: %s", conclusion)
+    logger.info(
+        "Зонд счётчиков, ПРЕДВАРИТЕЛЬНЫЙ ход мысли (окончательный вывод — за сверкой): %s",
+        provisional,
+    )
     return {
         "baseline": {
             "source": str(ANSWERED_SAMPLE_PATH),
@@ -254,7 +256,6 @@ def probe_counters() -> dict[str, Any] | None:
             "counters": current,
         },
         "counters_match": matches,
-        "conclusion": conclusion,
     }
 
 
@@ -265,8 +266,7 @@ def verify_collected_totals(collected_by_nm: dict[str, int]) -> dict[str, Any]:
     равен числу реально собранных отзывов одного артикула — счётчик
     поартикульный, а не по всему магазину.
     """
-    verification: dict[str, Any] = {}
-    diffs: list[int] = []
+    by_article: dict[str, Any] = {}
 
     for nm_id in NM_IDS:
         key = str(nm_id)
@@ -285,7 +285,6 @@ def verify_collected_totals(collected_by_nm: dict[str, int]) -> dict[str, Any]:
             continue
 
         diff = collected - api_total
-        diffs.append(diff)
         logger.info(
             "Сверка по артикулу %s: countArchive=%d, собрано=%d, разница %+d",
             nm_id,
@@ -293,32 +292,39 @@ def verify_collected_totals(collected_by_nm: dict[str, int]) -> dict[str, Any]:
             collected,
             diff,
         )
-        verification[key] = {"count_archive": api_total, "collected": collected, "diff": diff}
+        by_article[key] = {"count_archive": api_total, "collected": collected, "diff": diff}
 
-    if not verification:
+    if not by_article:
         return {}
 
-    worst = max(abs(diff) for diff in diffs)
+    checked = len(by_article)
+    exact = sum(1 for item in by_article.values() if item["diff"] == 0)
+    worst = max(abs(item["diff"]) for item in by_article.values())
     if worst == 0:
-        conclusion = (
-            "countArchive точно равен числу собранных отзывов по каждому артикулу: "
-            "счётчик поартикульный, им можно пользоваться как количеством отзывов."
+        verdict = (
+            f"countArchive поартикульный: совпадает с числом собранных отзывов "
+            f"на {exact} из {checked} артикулов."
         )
     elif worst <= 2:
-        conclusion = (
-            f"countArchive расходится с числом собранных отзывов максимум на {worst} — "
-            "это новые отзывы, успевшие появиться между сбором и сверкой. Счётчик "
-            "поартикульный, но для отчётов брать фактическое собранное количество."
+        verdict = (
+            f"countArchive поартикульный: точное совпадение на {exact} из {checked} "
+            f"артикулов, расхождение не больше ±{worst} — отзывы, успевшие появиться "
+            "между сбором и сверкой."
         )
     else:
-        conclusion = (
-            "countArchive расходится с фактическим числом собранных отзывов сильнее, "
-            "чем на пару записей, — как количество по артикулу он ненадёжен, "
-            "опираться нужно на собранные страницы."
+        verdict = (
+            f"countArchive не подтверждён как поартикульный: точное совпадение только "
+            f"на {exact} из {checked}, расхождение до ±{worst} — за количеством "
+            "нужно смотреть по фактически собранным страницам."
         )
-    logger.info("Итог сверки счётчиков: %s", conclusion)
-    verification["conclusion"] = conclusion
-    return verification
+    logger.info("Итог сверки счётчиков: %s", verdict)
+    return {
+        "by_article": by_article,
+        "articles_checked": checked,
+        "exact_matches": exact,
+        "max_abs_diff": worst,
+        "verdict": verdict,
+    }
 
 
 def build_stats(rows: list[dict]) -> dict[str, Any]:
@@ -392,7 +398,7 @@ def main() -> None:
         logger.error("NM_IDS пуст — собирать неоткуда")
         sys.exit(1)
 
-    probe = probe_counters()
+    measurements = probe_counters()
 
     by_nm: dict[str, dict[str, list[dict]]] = {}
     rows: list[dict] = []
@@ -413,10 +419,17 @@ def main() -> None:
     }
     verification = verify_collected_totals(collected_totals)
 
+    # Поле заполняется после сверки: вывод из двух запросов зонда был
+    # предварительным и в финальный артефакт не попадает.
+    counters_probe: dict[str, Any] = {
+        "measurements": measurements or {},
+        "verification_by_article": verification.get("by_article", {}),
+        "verdict": verification.get("verdict") or "сверка не выполнена, вывода нет",
+    }
+
     stats: dict[str, Any] = {
         "generated_at_moscow": datetime.now(MOSCOW).isoformat(),
-        "counters_probe": probe,
-        "totals_verification": verification,
+        "counters_probe": counters_probe,
         "articles": {
             str(nm_id): build_stats([row for row in rows if row["nm_id"] == nm_id])
             for nm_id in NM_IDS
