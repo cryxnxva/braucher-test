@@ -52,12 +52,16 @@
 ## Git
 
 - Коммиты создаёт агент, без отдельного запроса, но только в feature-ветку.
-  Ветка части 1 — `feature/part1-reviews`.
+  Ветка части 2 — `feature/part2-funnel`; после приёмки мержится в master и
+  удаляется.
 - Перед каждым коммитом проверять `git status` и убеждаться, что `.env`,
   `credentials.json`, `output/`, `task.md`, `vacancy.md` не попадают в индекс.
 - `git add` только перечисленными файлами. Команды `git add .` и `git add -A`
   запрещены.
 - Запрещены: `push` в `main`/`master`, `force push`, `rebase`, `commit --amend`.
+- Прямой push в master с рабочей ветки запрещён. Merge feature-ветки в master и
+  push merge-коммита разрешены только по явному указанию Tech Lead в тексте задачи.
+- Прямые коммиты в master — только по явному указанию Tech Lead в тексте задачи.
 - Переписывание истории и force push — только по явной санкции Tech Lead в
   тексте задачи. Вне такой санкции правила выше абсолютны.
 - Сообщения коммитов — conventional commits: `chore:`, `feat:`, `fix:`,
