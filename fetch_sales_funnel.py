@@ -9,6 +9,9 @@
 `addToWishlistCount`.
 
 Выгрузки: `output/funnel_raw.json`, `output/funnel.csv`, `output/funnel_stats.json`.
+Сырой ответ пишется до вердикта проверки периода; сама проверка блокирует работу:
+при дубле дневной строки, дате вне периода, сегодняшней дате или пропавшем
+артикуле скрипт выходит с кодом 1 и не обновляет CSV и контрольные цифры.
 
 Определения для методологии (ЭТАП 5 сверяет с ними формулы таблицы):
   * Средний чек = сумма заказов в рублях / количество заказов в штуках за
@@ -185,10 +188,13 @@ def check_period(
     today: date,
     requested: list[int] | None = None,
 ) -> dict[str, Any]:
-    """Верификация периода: 7 уникальных дат внутри [begin; end], без сегодня.
+    """Верификация периода: 7 дат, ровно по одной строке на пару артикул×день.
 
     Проверяются артикулы, которые реально пришли, а `requested` (по умолчанию
-    артикулы из `.env`) нужен, чтобы заметить отсутствующий товар.
+    артикулы из `.env`) нужен, чтобы заметить отсутствующий товар. Число
+    уникальных дат само по себе дубликат не ловит: строка-дубль раздувает суммы
+    за период, оставляя счётчик дат правильным, поэтому сравниваются и число
+    строк, и число уникальных дат.
     """
     requested_ids = list(NM_IDS) if requested is None else list(requested)
     articles: dict[str, Any] = {}
@@ -197,10 +203,20 @@ def check_period(
     present = sorted({row["nm_id"] for row in rows})
     for nm_id in present:
         key = str(nm_id)
-        dates = sorted({row["date"] for row in rows if row["nm_id"] == nm_id})
+        article_rows = [row for row in rows if row["nm_id"] == nm_id]
+        day_counts: dict[str, int] = {}
+        for row in article_rows:
+            day_counts[row["date"]] = day_counts.get(row["date"], 0) + 1
+        dates = sorted(day_counts)
+        duplicates = sorted(day for day, size in day_counts.items() if size > 1)
         problems: list[str] = []
         if len(dates) != PERIOD_DAYS:
             problems.append(f"уникальных дат {len(dates)}, ожидалось {PERIOD_DAYS}")
+        if len(article_rows) != len(dates):
+            problems.append(
+                f"строк {len(article_rows)} при {len(dates)} уникальных датах — "
+                f"дубликаты по дням: {duplicates}"
+            )
         for value in dates:
             day = date.fromisoformat(value)
             if not begin <= day <= end:
@@ -212,7 +228,9 @@ def check_period(
             problems_all.extend(f"{key}: {problem}" for problem in problems)
         articles[key] = {
             "unique_dates": len(dates),
+            "rows": len(article_rows),
             "dates": dates,
+            "duplicate_dates": duplicates,
             "ok": not problems,
             "problems": problems,
         }
@@ -344,25 +362,30 @@ def main() -> None:
     logger.info("Сегодня по Москве %s, период [%s; %s]", today, begin, end)
 
     payload = request_funnel(begin, end)
+    # Дамп пишется до любых вердиктов: при провале разбирать нужно именно ответ API.
+    write_raw(payload)
     rows = normalize_rows(payload)
     if not rows:
-        logger.error("В ответе нет ни одной дневной строки")
+        logger.error("В ответе нет ни одной дневной строки — сырой ответ лежит в %s", RAW_OUT_PATH)
         sys.exit(1)
 
     arrived = sorted({row["nm_id"] for row in rows})
     for nm_id in NM_IDS:
         if nm_id not in arrived:
-            logger.warning("Артикул %s не пришёл в ответе — работаю с тем, что есть", nm_id)
+            logger.warning("Артикул %s не пришёл в ответе — проверка периода это заблокирует", nm_id)
 
     shows_field, rationale = detect_shows_field(rows)
     logger.info("Поле показов: %s — %s", shows_field, rationale)
 
     period = check_period(rows, begin, end, today)
     if period["ok"]:
-        logger.info("Проверка периода: ок — по %d артикулам по %d уникальных дат, сегодня исключена",
-                    len(period["articles"]), PERIOD_DAYS)
+        logger.info("Проверка периода: ок — по %d артикулам по %d уникальных дат по одной строке, "
+                    "сегодня исключена", len(period["articles"]), PERIOD_DAYS)
     else:
-        logger.warning("Проверка периода, проблемы: %s", period["problems"])
+        logger.error("Проверка периода не пройдена: %s", period["problems"])
+        logger.error("Файлы воронки не обновляю: сводка по неверному периоду вводит заказчика "
+                     "в заблуждение. Сырой ответ лежит в %s", RAW_OUT_PATH)
+        sys.exit(1)
 
     by_article = {nm_id: [row for row in rows if row["nm_id"] == nm_id] for nm_id in arrived}
     titles = {nm_id: title_of(item) for item in items_of(payload) if (nm_id := nm_id_of(item)) is not None}
@@ -381,7 +404,6 @@ def main() -> None:
         "grand_total": control_figures(rows, shows_field),
     }
 
-    write_raw(payload)
     columns = csv_columns(rows)
     write_csv(rows, columns)
     write_stats(stats)

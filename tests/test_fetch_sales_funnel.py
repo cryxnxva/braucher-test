@@ -221,3 +221,26 @@ def test_control_figures_on_full_fixture_matches_sums(rows: list[dict[str, Any]]
         figures["orders_sum"] / figures["orders_count"], 2
     )
     assert len(figures["daily_cr"]) == 21
+
+
+def test_period_check_catches_duplicate_day_row(rows: list[dict[str, Any]]) -> None:
+    """Дубль дневной строки не спрячется за правильным числом уникальных дат."""
+    begin, end = ff.funnel_period()
+    duplicated = rows + [dict(rows[0])]
+
+    check = ff.check_period(duplicated, begin, end, msk_today(), list(NM_IDS_FIXTURE))
+
+    assert check["ok"] is False
+    assert any("дубликаты по дням" in problem for problem in check["problems"])
+    key = str(rows[0]["nm_id"])
+    assert check["articles"][key]["rows"] == 8
+    assert check["articles"][key]["unique_dates"] == 7
+    assert check["articles"][key]["duplicate_dates"] == [rows[0]["date"]]
+
+
+def test_period_check_reports_row_count_on_clean_data(rows: list[dict[str, Any]]) -> None:
+    begin, end = ff.funnel_period()
+
+    check = ff.check_period(rows, begin, end, msk_today(), list(NM_IDS_FIXTURE))
+
+    assert all(entry["rows"] == entry["unique_dates"] == 7 for entry in check["articles"].values())
