@@ -1,0 +1,197 @@
+{
+  "generated_at_moscow": "2026-09-30T06:05:17.806027+03:00",
+  "request_body": {
+    "nmIds": [
+      386248405,
+      147866642,
+      1138944672
+    ],
+    "selectedPeriod": {
+      "start": "2026-09-23",
+      "end": "2026-09-29"
+    },
+    "aggregationLevel": "day"
+  },
+  "shows_field": {
+    "field": "openCount",
+    "rationale": "round(cartCount / openCount * 100) == addToCartConversion выполнилось на 21 из 21 дневных записей; ненулевые кандидаты: ['openCount', 'cartCount', 'orderCount', 'orderSum', 'buyoutCount', 'buyoutSum', 'addToWishlistCount']"
+  },
+  "period_check": {
+    "ok": true,
+    "period": {
+      "begin": "2026-09-23",
+      "end": "2026-09-29",
+      "days": 7
+    },
+    "today_excluded": "2026-09-30",
+    "missing_articles": [],
+    "articles": {
+      "147866642": {
+        "unique_dates": 7,
+        "dates": [
+          "2026-09-23",
+          "2026-09-24",
+          "2026-09-25",
+          "2026-09-26",
+          "2026-09-27",
+          "2026-09-28",
+          "2026-09-29"
+        ],
+        "ok": true,
+        "problems": []
+      },
+      "386248405": {
+        "unique_dates": 7,
+        "dates": [
+          "2026-09-23",
+          "2026-09-24",
+          "2026-09-25",
+          "2026-09-26",
+          "2026-09-27",
+          "2026-09-28",
+          "2026-09-29"
+        ],
+        "ok": true,
+        "problems": []
+      },
+      "1138944672": {
+        "unique_dates": 7,
+        "dates": [
+          "2026-09-23",
+          "2026-09-24",
+          "2026-09-25",
+          "2026-09-26",
+          "2026-09-27",
+          "2026-09-28",
+          "2026-09-29"
+        ],
+        "ok": true,
+        "problems": []
+      }
+    },
+    "problems": []
+  },
+  "articles": {
+    "147866642": {
+      "title": "Коврик для мышки большой игровой 900х400 мм на стол для пк",
+      "days": 7,
+      "shows_field": "openCount",
+      "shows": 9216,
+      "orders_count": 606,
+      "orders_sum": 426315,
+      "buyout_count": 219,
+      "buyout_sum": 148676,
+      "avg_check": 703.49,
+      "cr_percent": {
+        "avg": 6.58,
+        "min": 5.69,
+        "max": 8.0,
+        "days_counted": 7,
+        "days_with_zero_shows": 0
+      },
+      "daily_cr": [
+        6.84,
+        8.0,
+        6.82,
+        6.09,
+        5.81,
+        5.69,
+        6.8
+      ]
+    },
+    "386248405": {
+      "title": "Шуруповерт аккумуляторный бесщеточный для дома, дрель 21В",
+      "days": 7,
+      "shows_field": "openCount",
+      "shows": 16470,
+      "orders_count": 264,
+      "orders_sum": 1438808,
+      "buyout_count": 99,
+      "buyout_sum": 539551,
+      "avg_check": 5450.03,
+      "cr_percent": {
+        "avg": 1.66,
+        "min": 1.14,
+        "max": 2.2,
+        "days_counted": 7,
+        "days_with_zero_shows": 0
+      },
+      "daily_cr": [
+        2.13,
+        2.04,
+        2.2,
+        1.14,
+        1.68,
+        1.26,
+        1.14
+      ]
+    },
+    "1138944672": {
+      "title": "Монтажный пистолет гвоздезабивной пневматический для гвоздей",
+      "days": 7,
+      "shows_field": "openCount",
+      "shows": 3743,
+      "orders_count": 136,
+      "orders_sum": 462534,
+      "buyout_count": 47,
+      "buyout_sum": 159847,
+      "avg_check": 3400.99,
+      "cr_percent": {
+        "avg": 3.67,
+        "min": 1.83,
+        "max": 5.37,
+        "days_counted": 7,
+        "days_with_zero_shows": 0
+      },
+      "daily_cr": [
+        2.44,
+        3.42,
+        1.83,
+        4.63,
+        4.01,
+        5.37,
+        4.03
+      ]
+    }
+  },
+  "grand_total": {
+    "days": 7,
+    "shows_field": "openCount",
+    "shows": 29429,
+    "orders_count": 1006,
+    "orders_sum": 2327657,
+    "buyout_count": 365,
+    "buyout_sum": 848074,
+    "avg_check": 2313.77,
+    "cr_percent": {
+      "avg": 3.97,
+      "min": 1.14,
+      "max": 8.0,
+      "days_counted": 21,
+      "days_with_zero_shows": 0
+    },
+    "daily_cr": [
+      2.13,
+      2.04,
+      2.2,
+      1.14,
+      1.68,
+      1.26,
+      1.14,
+      6.84,
+      8.0,
+      6.82,
+      6.09,
+      5.81,
+      5.69,
+      6.8,
+      2.44,
+      3.42,
+      1.83,
+      4.63,
+      4.01,
+      5.37,
+      4.03
+    ]
+  }
+}

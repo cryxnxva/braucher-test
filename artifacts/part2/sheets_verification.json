@@ -1,0 +1,377 @@
+{
+  "ok": true,
+  "row_order": {
+    "expected_keys": [
+      "386248405",
+      "1138944672",
+      "147866642",
+      "ИТОГО"
+    ],
+    "buyout_sum_descending": true,
+    "buyout_sequence": [
+      539551.0,
+      159847.0,
+      148676.0
+    ]
+  },
+  "formula_cells": {
+    "C": "=SUMIFS('Сырые данные'!C:C;'Сырые данные'!A:A;A2)",
+    "H": "=IF(D2=0;\"—\";E2/D2)",
+    "I": "=IFERROR(AVERAGEIFS('Сырые данные'!M:M;'Сырые данные'!A:A;A2);\"—\")"
+  },
+  "checks": [
+    {
+      "metric": "386248405: показы",
+      "table": 16470,
+      "expected": 16470.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 2
+    },
+    {
+      "metric": "386248405: заказы шт",
+      "table": 264,
+      "expected": 264.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 2
+    },
+    {
+      "metric": "386248405: заказы ₽",
+      "table": 1438808,
+      "expected": 1438808.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 2
+    },
+    {
+      "metric": "386248405: выкупы шт",
+      "table": 99,
+      "expected": 99.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 2
+    },
+    {
+      "metric": "386248405: выкупы ₽",
+      "table": 539551,
+      "expected": 539551.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 2
+    },
+    {
+      "metric": "386248405: средний чек",
+      "table": 5450.030303030303,
+      "expected": 5450.03,
+      "kind": "rounded",
+      "diff": 0.0003,
+      "ok": true,
+      "row": 2
+    },
+    {
+      "metric": "386248405: CR среднее",
+      "table": 0.01655918418642134,
+      "expected": 1.66,
+      "kind": "cr_fraction",
+      "diff": 0.0041,
+      "ok": true,
+      "table_percent": 1.6559,
+      "row": 2
+    },
+    {
+      "metric": "386248405: CR мин",
+      "table": 0.0113555713271824,
+      "expected": 1.14,
+      "kind": "cr_fraction",
+      "diff": 0.0044,
+      "ok": true,
+      "table_percent": 1.1356,
+      "row": 2
+    },
+    {
+      "metric": "386248405: CR макс",
+      "table": 0.02198364008179959,
+      "expected": 2.2,
+      "kind": "cr_fraction",
+      "diff": 0.0016,
+      "ok": true,
+      "table_percent": 2.1984,
+      "row": 2
+    },
+    {
+      "metric": "1138944672: показы",
+      "table": 3743,
+      "expected": 3743.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 3
+    },
+    {
+      "metric": "1138944672: заказы шт",
+      "table": 136,
+      "expected": 136.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 3
+    },
+    {
+      "metric": "1138944672: заказы ₽",
+      "table": 462534,
+      "expected": 462534.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 3
+    },
+    {
+      "metric": "1138944672: выкупы шт",
+      "table": 47,
+      "expected": 47.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 3
+    },
+    {
+      "metric": "1138944672: выкупы ₽",
+      "table": 159847,
+      "expected": 159847.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 3
+    },
+    {
+      "metric": "1138944672: средний чек",
+      "table": 3400.985294117647,
+      "expected": 3400.99,
+      "kind": "rounded",
+      "diff": 0.0047,
+      "ok": true,
+      "row": 3
+    },
+    {
+      "metric": "1138944672: CR среднее",
+      "table": 0.036738639777041095,
+      "expected": 3.67,
+      "kind": "cr_fraction",
+      "diff": 0.0039,
+      "ok": true,
+      "table_percent": 3.6739,
+      "row": 3
+    },
+    {
+      "metric": "1138944672: CR мин",
+      "table": 0.018281535648994516,
+      "expected": 1.83,
+      "kind": "cr_fraction",
+      "diff": 0.0018,
+      "ok": true,
+      "table_percent": 1.8282,
+      "row": 3
+    },
+    {
+      "metric": "1138944672: CR макс",
+      "table": 0.053742802303262956,
+      "expected": 5.37,
+      "kind": "cr_fraction",
+      "diff": 0.0043,
+      "ok": true,
+      "table_percent": 5.3743,
+      "row": 3
+    },
+    {
+      "metric": "147866642: показы",
+      "table": 9216,
+      "expected": 9216.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 4
+    },
+    {
+      "metric": "147866642: заказы шт",
+      "table": 606,
+      "expected": 606.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 4
+    },
+    {
+      "metric": "147866642: заказы ₽",
+      "table": 426315,
+      "expected": 426315.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 4
+    },
+    {
+      "metric": "147866642: выкупы шт",
+      "table": 219,
+      "expected": 219.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 4
+    },
+    {
+      "metric": "147866642: выкупы ₽",
+      "table": 148676,
+      "expected": 148676.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 4
+    },
+    {
+      "metric": "147866642: средний чек",
+      "table": 703.490099009901,
+      "expected": 703.49,
+      "kind": "rounded",
+      "diff": 0.0001,
+      "ok": true,
+      "row": 4
+    },
+    {
+      "metric": "147866642: CR среднее",
+      "table": 0.06578136881144862,
+      "expected": 6.58,
+      "kind": "cr_fraction",
+      "diff": 0.0019,
+      "ok": true,
+      "table_percent": 6.5781,
+      "row": 4
+    },
+    {
+      "metric": "147866642: CR мин",
+      "table": 0.05692438402718777,
+      "expected": 5.69,
+      "kind": "cr_fraction",
+      "diff": 0.0024,
+      "ok": true,
+      "table_percent": 5.6924,
+      "row": 4
+    },
+    {
+      "metric": "147866642: CR макс",
+      "table": 0.08,
+      "expected": 8.0,
+      "kind": "cr_fraction",
+      "diff": 0.0,
+      "ok": true,
+      "table_percent": 8.0,
+      "row": 4
+    },
+    {
+      "metric": "ИТОГО: показы",
+      "table": 29429,
+      "expected": 29429.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 5
+    },
+    {
+      "metric": "ИТОГО: заказы шт",
+      "table": 1006,
+      "expected": 1006.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 5
+    },
+    {
+      "metric": "ИТОГО: заказы ₽",
+      "table": 2327657,
+      "expected": 2327657.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 5
+    },
+    {
+      "metric": "ИТОГО: выкупы шт",
+      "table": 365,
+      "expected": 365.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 5
+    },
+    {
+      "metric": "ИТОГО: выкупы ₽",
+      "table": 848074,
+      "expected": 848074.0,
+      "kind": "int",
+      "diff": 0.0,
+      "ok": true,
+      "row": 5
+    },
+    {
+      "metric": "ИТОГО: средний чек",
+      "table": 2313.7743538767395,
+      "expected": 2313.77,
+      "kind": "rounded",
+      "diff": 0.0044,
+      "ok": true,
+      "row": 5
+    },
+    {
+      "metric": "ИТОГО: CR среднее",
+      "table": 0.03969306425830369,
+      "expected": 3.97,
+      "kind": "cr_fraction",
+      "diff": 0.0007,
+      "ok": true,
+      "table_percent": 3.9693,
+      "row": 5
+    },
+    {
+      "metric": "ИТОГО: CR мин",
+      "table": 0.0113555713271824,
+      "expected": 1.14,
+      "kind": "cr_fraction",
+      "diff": 0.0044,
+      "ok": true,
+      "table_percent": 1.1356,
+      "row": 5
+    },
+    {
+      "metric": "ИТОГО: CR макс",
+      "table": 0.08,
+      "expected": 8.0,
+      "kind": "cr_fraction",
+      "diff": 0.0,
+      "ok": true,
+      "table_percent": 8.0,
+      "row": 5
+    }
+  ],
+  "problems": [],
+  "buyout_percent": {
+    "rows": 21,
+    "checked": 21,
+    "skipped_zero_denominator": 0,
+    "matched_sum_only": 0,
+    "matched_count_only": 0,
+    "matched_both": 4,
+    "matched_neither": 17,
+    "conclusion": "buyoutPercent из API не воспроизводится ни одной формулой от дневных показателей (выкупы ₽ / заказы ₽ — 0 из 21 записей; выкупы шт / заказы шт — 0 из 21; обе сразу — 4 из 21). Вероятная причина — знаменатель охватывает более ранние заказы, по которым уже истёк срок возврата (когортный расчёт); документального подтверждения нет. В расчётных метриках не используется, колонка «Выкуп, %» справочная."
+  },
+  "written": {
+    "Сырые данные": 22,
+    "Сводная": 5,
+    "Методология": 33
+  },
+  "verified_at_moscow": "2026-09-30T15:35:59+03:00"
+}
