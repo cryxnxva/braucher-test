@@ -242,13 +242,12 @@ def buyout_percent_semantics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         )
     else:
         conclusion = (
-            f"buyoutPercent из API не воспроизводится ни одной простой формулой: только "
-            f"выкупы₽/заказы₽ совпало {only_sum} из {checked}, только выкупышт/заказышт — "
-            f"{only_count}, обе формулы сразу — {both}, ни одна — {neither}. API систематически "
-            f"завышает значение (вплоть до 100% в день, где выкуплено 6% заказов), то есть "
-            f"знаменатель — когорта заказов, по которым уже истёк срок отказа, а не заказы "
-            f"этого дня. В расчётных метриках (CR, средний чек, суммы) buyoutPercent не "
-            f"используется; колонка «Выкуп, %» справочная и приведена как пришла из API."
+            f"buyoutPercent из API не воспроизводится ни одной формулой от дневных показателей "
+            f"(выкупы ₽ / заказы ₽ — {only_sum} из {checked} записей; выкупы шт / заказы шт — "
+            f"{only_count} из {checked}; обе сразу — {both} из {checked}). Вероятная причина — "
+            f"знаменатель охватывает более ранние заказы, по которым уже истёк срок возврата "
+            f"(когортный расчёт); документального подтверждения нет. В расчётных метриках не "
+            f"используется, колонка «Выкуп, %» справочная."
         )
 
     return {
@@ -261,6 +260,48 @@ def buyout_percent_semantics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "matched_neither": neither,
         "conclusion": conclusion,
     }
+
+
+def rubles(value: int) -> str:
+    """Рубли с пробелами в разрядах — для читаемого текста методологии."""
+    return f"{value:,}".replace(",", " ")
+
+
+def sorting_note(stats: dict[str, Any], order: list[int]) -> list[str]:
+    """Раздел «Порядок строк» + пример, где порядок по выкупам ₽ спорит с числом заказов."""
+    articles = stats["articles"]
+    lines = [
+        "Сортировка — по сумме выкупов ₽ по убыванию, а не по числу заказов: порядок задаёт "
+        "скрипт при выгрузке, внутри артикула даты по возрастанию.",
+    ]
+
+    inversion: tuple[int, int, int] | None = None
+    for upper, lower in zip(order, order[1:]):
+        gap = articles[str(lower)]["orders_count"] - articles[str(upper)]["orders_count"]
+        if gap > 0 and (inversion is None or gap > inversion[0]):
+            inversion = (gap, upper, lower)
+
+    if inversion is None:
+        lines.append(
+            "Число заказов в этом срезе упорядочено так же, как суммы выкупов, поэтому "
+            "расхождение наглядно не видно — но сортировка всё равно по рублям выкупов."
+        )
+    else:
+        _, upper, lower = inversion
+        lines.append(
+            f"То, что верхняя строка не лидирует по заказам, — не ошибка: артикул {upper} "
+            f"«{articles[str(upper)]['title']}» стоит выше артикула {lower} "
+            f"«{articles[str(lower)]['title']}», хотя заказов у него "
+            f"{articles[str(upper)]['orders_count']} против {articles[str(lower)]['orders_count']}, "
+            f"зато выкупов на {rubles(articles[str(upper)]['buyout_sum'])} ₽ против "
+            f"{rubles(articles[str(lower)]['buyout_sum'])} ₽."
+        )
+
+    lines.append(
+        "Формулы пересчитывают значения на месте, но не пересортировывают строки — при "
+        "обновлении данных порядок нужно задать повторной выгрузкой скриптом."
+    )
+    return lines
 
 
 def methodology_lines(period: dict[str, Any], stats: dict[str, Any], order: list[int],
@@ -306,9 +347,7 @@ def methodology_lines(period: dict[str, Any], stats: dict[str, Any], order: list
         buyout["conclusion"],
         "",
         "5. Порядок строк",
-        "Порядок зафиксирован при выгрузке: артикулы по сумме выкупов ₽ по убыванию, внутри артикула "
-        "даты по возрастанию. Формулы пересчитывают значения на месте, но не пересортировывают "
-        "строки — при обновлении данных порядок нужно задать повторной выгрузкой скриптом.",
+        *sorting_note(stats, order),
         "",
         "6. Как устроены листы",
         "«Сырые данные» — по строке на артикул×день, метрики как пришли из API, колонка M — расчётная.",

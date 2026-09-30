@@ -29,7 +29,7 @@ def metrics(shows: int, orders_count: int, orders_sum: int, buyout_count: int,
 
 def make_stats() -> dict[str, Any]:
     """Два артикула: у первого выкупы больше, поэтому он идёт первой строкой."""
-    return {
+    stats = {
         "period_check": {
             "period": {"begin": "2026-09-23", "end": "2026-09-29", "days": 7},
             "ok": True,
@@ -40,6 +40,10 @@ def make_stats() -> dict[str, Any]:
         },
         "grand_total": metrics(1500, 50, 50000, 50, 50000, 1000.0, 3.0, 1.0, 6.0),
     }
+    # title есть у артикулов в funnel_stats.json и отсутствует у grand_total
+    stats["articles"]["111"]["title"] = "Шуруповёрт аккумуляторный 21В"
+    stats["articles"]["222"]["title"] = "Коврик для мыши игровой"
+    return stats
 
 
 def funnel_row(nm_id: int, day: str, shows: int, orders: int = 1, buyout: int = 0) -> dict[str, Any]:
@@ -247,6 +251,10 @@ def test_buyout_percent_semantics_reports_no_simple_formula() -> None:
     assert result["matched_sum_only"] == 0
     assert result["matched_neither"] == 1
     assert "не воспроизводится" in result["conclusion"]
+    # вывод ограничен этим срезом: версия о когортах подана как гипотеза, а не факт
+    assert "документального подтверждения нет" in result["conclusion"]
+    assert "из 2 записей" in result["conclusion"]
+    assert "справочная" in result["conclusion"]
 
 
 def test_buyout_percent_skips_zero_denominators() -> None:
@@ -277,6 +285,27 @@ def test_methodology_text_carries_definitions_and_caveats() -> None:
     assert "buyoutPercent" in text
     assert "по сумме выкупов ₽ по убыванию" in text
     assert "sales-funnel/products/history" in text
+
+
+def test_sorting_note_explains_inversion_against_order_count() -> None:
+    """Нижняя строка с большим числом заказов не должна выглядеть ошибкой выгрузки."""
+    stats = make_stats()
+    stats["articles"]["222"]["orders_count"] = 90
+    text = "\n".join(up.sorting_note(stats, up.article_order(stats)))
+
+    assert "по сумме выкупов ₽ по убыванию, а не по числу заказов" in text
+    assert "заказов у него 40 против 90" in text
+    assert "30 000 ₽ против 20 000 ₽" in text
+    assert "Шуруповёрт аккумуляторный 21В" in text
+    assert "Коврик для мыши игровой" in text
+
+
+def test_sorting_note_without_inversion_keeps_sorting_rule() -> None:
+    stats = make_stats()
+    text = "\n".join(up.sorting_note(stats, up.article_order(stats)))
+
+    assert "по сумме выкупов ₽ по убыванию" in text
+    assert "не пересортировывают строки" in text
 
 
 def test_formula_separator_follows_sheet_locale() -> None:
