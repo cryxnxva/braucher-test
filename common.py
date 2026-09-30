@@ -27,6 +27,7 @@ MOSCOW_TZ = timezone(timedelta(hours=3), "Europe/Moscow")
 
 WB_TOKEN: str | None = os.getenv("WB_TOKEN") or None
 SPREADSHEET_ID: str | None = os.getenv("SPREADSHEET_ID") or None
+GOOGLE_CREDENTIALS_PATH: str = os.getenv("GOOGLE_CREDENTIALS_PATH", "credentials.json")
 NM_IDS: list[int] = [int(part) for part in os.getenv("NM_IDS", "").split(",") if part.strip()]
 
 
