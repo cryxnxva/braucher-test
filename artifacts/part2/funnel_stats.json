@@ -1,5 +1,5 @@
 {
-  "generated_at_moscow": "2026-09-30T06:05:17.806027+03:00",
+  "generated_at_moscow": "2026-09-30T16:38:15.062786+03:00",
   "request_body": {
     "nmIds": [
       386248405,
@@ -28,6 +28,7 @@
     "articles": {
       "147866642": {
         "unique_dates": 7,
+        "rows": 7,
         "dates": [
           "2026-09-23",
           "2026-09-24",
@@ -37,11 +38,13 @@
           "2026-09-28",
           "2026-09-29"
         ],
+        "duplicate_dates": [],
         "ok": true,
         "problems": []
       },
       "386248405": {
         "unique_dates": 7,
+        "rows": 7,
         "dates": [
           "2026-09-23",
           "2026-09-24",
@@ -51,11 +54,13 @@
           "2026-09-28",
           "2026-09-29"
         ],
+        "duplicate_dates": [],
         "ok": true,
         "problems": []
       },
       "1138944672": {
         "unique_dates": 7,
+        "rows": 7,
         "dates": [
           "2026-09-23",
           "2026-09-24",
@@ -65,6 +70,7 @@
           "2026-09-28",
           "2026-09-29"
         ],
+        "duplicate_dates": [],
         "ok": true,
         "problems": []
       }
@@ -77,13 +83,13 @@
       "days": 7,
       "shows_field": "openCount",
       "shows": 9216,
-      "orders_count": 606,
-      "orders_sum": 426315,
-      "buyout_count": 219,
-      "buyout_sum": 148676,
-      "avg_check": 703.49,
+      "orders_count": 607,
+      "orders_sum": 427065,
+      "buyout_count": 242,
+      "buyout_sum": 164972,
+      "avg_check": 703.57,
       "cr_percent": {
-        "avg": 6.58,
+        "avg": 6.59,
         "min": 5.69,
         "max": 8.0,
         "days_counted": 7,
@@ -96,7 +102,7 @@
         6.09,
         5.81,
         5.69,
-        6.8
+        6.88
       ]
     },
     "386248405": {
@@ -106,8 +112,8 @@
       "shows": 16470,
       "orders_count": 264,
       "orders_sum": 1438808,
-      "buyout_count": 99,
-      "buyout_sum": 539551,
+      "buyout_count": 114,
+      "buyout_sum": 621301,
       "avg_check": 5450.03,
       "cr_percent": {
         "avg": 1.66,
@@ -133,8 +139,8 @@
       "shows": 3743,
       "orders_count": 136,
       "orders_sum": 462534,
-      "buyout_count": 47,
-      "buyout_sum": 159847,
+      "buyout_count": 56,
+      "buyout_sum": 190456,
       "avg_check": 3400.99,
       "cr_percent": {
         "avg": 3.67,
@@ -158,11 +164,11 @@
     "days": 7,
     "shows_field": "openCount",
     "shows": 29429,
-    "orders_count": 1006,
-    "orders_sum": 2327657,
-    "buyout_count": 365,
-    "buyout_sum": 848074,
-    "avg_check": 2313.77,
+    "orders_count": 1007,
+    "orders_sum": 2328407,
+    "buyout_count": 412,
+    "buyout_sum": 976729,
+    "avg_check": 2312.22,
     "cr_percent": {
       "avg": 3.97,
       "min": 1.14,
@@ -184,7 +190,7 @@
       6.09,
       5.81,
       5.69,
-      6.8,
+      6.88,
       2.44,
       3.42,
       1.83,
