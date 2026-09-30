@@ -10,11 +10,11 @@ import csv
 import json
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from common import NM_IDS, get_logger, wb_get
+from common import MOSCOW_TZ, NM_IDS, get_logger, wb_get
 
 FEEDBACKS_URL = "https://feedbacks-api.wildberries.ru/api/v1/feedbacks"
 OUTPUT_DIR = Path("output")
@@ -38,10 +38,6 @@ CSV_COLUMNS = [
     "pros",
     "cons",
 ]
-# Смещение фиксированное: `zoneinfo` на Windows без пакета tzdata ключ
-# Europe/Moscow не находит, а новые зависимости запрещены. С 2014 года в Москве
-# нет перехода на летнее время, поэтому +03:00 верён для любой даты отзыва.
-MOSCOW = timezone(timedelta(hours=3), "Europe/Moscow")
 
 logger = get_logger(__name__)
 
@@ -65,7 +61,7 @@ def _to_moscow(raw_date: Any) -> str:
         return date_str
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=timezone.utc)
-    return moment.astimezone(MOSCOW).isoformat()
+    return moment.astimezone(MOSCOW_TZ).isoformat()
 
 
 def normalize_feedback(fb: dict, nm_id: int, branch: str) -> dict | None:
@@ -428,7 +424,7 @@ def main() -> None:
     }
 
     stats: dict[str, Any] = {
-        "generated_at_moscow": datetime.now(MOSCOW).isoformat(),
+        "generated_at_moscow": datetime.now(MOSCOW_TZ).isoformat(),
         "counters_probe": counters_probe,
         "articles": {
             str(nm_id): build_stats([row for row in rows if row["nm_id"] == nm_id])
