@@ -83,9 +83,12 @@ def load_funnel_rows(path: Path = FUNNEL_CSV_PATH) -> list[dict[str, Any]]:
     for raw in raw_rows:
         row: dict[str, Any] = {"nm_id": int(raw["nm_id"]), "date": raw["date"]}
         for key in ("openCount", "cartCount", "orderCount", "orderSum", "buyoutCount",
-                    "buyoutSum", "buyoutPercent", "addToCartConversion",
-                    "cartToOrderConversion", "addToWishlistCount"):
+                    "buyoutSum"):
             row[key] = int(raw[key])
+        # Проценты API — вещественные: дробное значение не должно ронять загрузку.
+        for key in ("buyoutPercent", "addToCartConversion", "cartToOrderConversion"):
+            row[key] = float(raw[key])
+        row["addToWishlistCount"] = int(raw["addToWishlistCount"])
         rows.append(row)
     return rows
 
@@ -110,9 +113,10 @@ def load_product_names(path: Path = REVIEWS_CSV_PATH) -> dict[int, str]:
 
 
 def article_order(stats: dict[str, Any]) -> list[int]:
-    """Артикулы по сумме выкупов ₽ за период, по убыванию."""
+    """Артикулы по сумме выкупов ₽ за период, по убыванию; при равенстве — по номеру."""
     articles = stats["articles"]
-    return sorted((int(nm) for nm in articles), key=lambda nm: -articles[str(nm)]["buyout_sum"])
+    return sorted((int(nm) for nm in articles),
+                  key=lambda nm: (-articles[str(nm)]["buyout_sum"], nm))
 
 
 # В локалях, где десятичный разделитель — запятая, аргументы формул разделяются
@@ -164,8 +168,15 @@ def build_raw_block(rows: list[dict[str, Any]], order: list[int], sep: str = ","
 
 
 def summary_formulas(line: int, sep: str = ",") -> list[str]:
-    """Формулы строки артикула: всё считается по листу «Сырые данные»."""
+    """Формулы строки артикула: всё считается по листу «Сырые данные».
+
+    Для минимума и максимума обязательна страховка по `COUNTIFS`: `MINIFS`/`MAXIFS`
+    при отсутствии числовых совпадений возвращают 0, а не ошибку, и `IFERROR`
+    такой ложный ноль не перехватил бы — «—» выдаётся только тогда, когда числовых CR
+    у артикула нет вовсе (все дни с нулевыми показами).
+    """
     raw = f"'{SHEET_RAW}'"
+    numeric_cr = (f"COUNTIFS({raw}!A:A{sep}A{line}{sep}{raw}!M:M{sep}\">=0\")")
     return [
         f"=SUMIFS({raw}!C:C{sep}{raw}!A:A{sep}A{line})",
         f"=SUMIFS({raw}!E:E{sep}{raw}!A:A{sep}A{line})",
@@ -174,37 +185,40 @@ def summary_formulas(line: int, sep: str = ",") -> list[str]:
         f"=SUMIFS({raw}!H:H{sep}{raw}!A:A{sep}A{line})",
         f'=IF(D{line}=0{sep}"{EMPTY_DASH}"{sep}E{line}/D{line})',
         f'=IFERROR(AVERAGEIFS({raw}!M:M{sep}{raw}!A:A{sep}A{line}){sep}"{EMPTY_DASH}")',
-        f'=IFERROR(MINIFS({raw}!M:M{sep}{raw}!A:A{sep}A{line}){sep}"{EMPTY_DASH}")',
-        f'=IFERROR(MAXIFS({raw}!M:M{sep}{raw}!A:A{sep}A{line}){sep}"{EMPTY_DASH}")',
+        f'=IF({numeric_cr}=0{sep}"{EMPTY_DASH}"{sep}MINIFS({raw}!M:M{sep}{raw}!A:A{sep}A{line}))',
+        f'=IF({numeric_cr}=0{sep}"{EMPTY_DASH}"{sep}MAXIFS({raw}!M:M{sep}{raw}!A:A{sep}A{line}))',
         f"=SPARKLINE(FILTER({raw}!H:H{sep}{raw}!A:A=A{line}))",
     ]
 
 
-def total_formulas(first_line: int, last_line: int, raw_last_row: int, sep: str = ",") -> list[str]:
-    """Строка ИТОГО: суммы по сводной, CR — по всем дневным значениям."""
+def total_formulas(total_line: int, sep: str = ",") -> list[str]:
+    """Строка ИТОГО: суммы и CR по всему листу «Сырые данные».
+
+    Диапазоны — целые столбцы, а не `C2:C4`/`M2:M22`: добавление артикула или
+    дня не требует правки формул, и ИТОГО не расходится с построчными SUMIFS,
+    которые тоже смотрят на весь столбец. Заголовок-текст SUM/AVERAGE/MIN/MAX
+    игнорируют, поэтому границ диапазона не нужна.
+    """
     raw = f"'{SHEET_RAW}'"
-    total_line = last_line + 1
+    numeric_cr = f"COUNT({raw}!M:M)"
     return [
-        *[f"=SUM({column}{first_line}:{column}{last_line})" for column in ("C", "D", "E", "F", "G")],
+        *[f"=SUM({raw}!{column}:{column})" for column in ("C", "E", "F", "G", "H")],
         f'=IF(D{total_line}=0{sep}"{EMPTY_DASH}"{sep}E{total_line}/D{total_line})',
-        f'=IFERROR(AVERAGE({raw}!M2:M{raw_last_row}){sep}"{EMPTY_DASH}")',
-        f"=MIN({raw}!M2:M{raw_last_row})",
-        f"=MAX({raw}!M2:M{raw_last_row})",
+        f'=IFERROR(AVERAGE({raw}!M:M){sep}"{EMPTY_DASH}")',
+        f'=IF({numeric_cr}=0{sep}"{EMPTY_DASH}"{sep}MIN({raw}!M:M))',
+        f'=IF({numeric_cr}=0{sep}"{EMPTY_DASH}"{sep}MAX({raw}!M:M))',
         "",
     ]
 
 
-def build_summary_block(order: list[int], names: dict[int, str], raw_row_count: int,
-                        sep: str = ",") -> list[list[Any]]:
+def build_summary_block(order: list[int], names: dict[int, str], sep: str = ",") -> list[list[Any]]:
     """Заголовок + по строке на артикул + строка ИТОГО."""
-    raw_last_row = raw_row_count + 1
     block: list[list[Any]] = [list(SUMMARY_HEADER)]
 
     for index, nm_id in enumerate(order, start=FIRST_DATA_ROW):
         block.append([nm_id, names.get(nm_id, ""), *summary_formulas(index, sep)])
 
-    first_line, last_line = FIRST_DATA_ROW, len(order) + 1
-    block.append([TOTAL_LABEL, "", *total_formulas(first_line, last_line, raw_last_row, sep)])
+    block.append([TOTAL_LABEL, "", *total_formulas(len(order) + 2, sep)])
     return block
 
 
@@ -232,13 +246,30 @@ def buyout_percent_semantics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             neither += 1
 
     checked = len(rows) - skipped
-    if only_count == checked and only_sum == 0:
+    if checked == 0:
         conclusion = (
-            f"buyoutPercent = выкупы,шт / заказы,шт: совпало {only_count} из {checked} записей."
+            f"buyoutPercent проверить не на чём: у всех {len(rows)} записей нулевые знаменатели "
+            f"(заказов за день нет). Ни одна формула не подтверждена и не опровергнута; колонка "
+            f"«Выкуп, %» справочная."
         )
-    elif only_sum == checked and only_count == 0:
+    elif both == checked:
         conclusion = (
-            f"buyoutPercent = выкупы,₽ / заказы,₽: совпало {only_sum} из {checked} записей."
+            f"buyoutPercent совпадает с обеими формулами сразу (выкупы ₽ / заказы ₽ и "
+            f"выкупы шт / заказы шт) на всех {checked} записях — различить эти два определения "
+            f"на таких данных нельзя. В расчётных метриках buyoutPercent не используется, колонка "
+            f"«Выкуп, %» справочная."
+        )
+    elif only_count == checked:
+        conclusion = (
+            f"buyoutPercent = выкупы,шт / заказы,шт: совпало {only_count} из {checked} записей, "
+            f"формула от рублей не совпала ни на одной. buyoutPercent в расчётных метриках не "
+            f"используется, колонка «Выкуп, %» справочная."
+        )
+    elif only_sum == checked:
+        conclusion = (
+            f"buyoutPercent = выкупы,₽ / заказы,₽: совпало {only_sum} из {checked} записей, "
+            f"формула от штук не совпала ни на одной. buyoutPercent в расчётных метриках не "
+            f"используется, колонка «Выкуп, %» справочная."
         )
     else:
         conclusion = (
@@ -304,6 +335,23 @@ def sorting_note(stats: dict[str, Any], order: list[int]) -> list[str]:
     return lines
 
 
+def period_lines(period: dict[str, Any]) -> list[str]:
+    """Строка про проверку периода — из фактических замеров, а не из литерала."""
+    dates = "/".join(str(value) for value in period["unique_dates_per_article"]) or "нет данных"
+    rows = "/".join(str(value) for value in period["rows_per_article"]) or "нет данных"
+    no_duplicates = (period["unique_dates_per_article"] == period["rows_per_article"]
+                     and bool(period["rows_per_article"]))
+    lines = [
+        f"Проверка периода: {'пройдена' if period['check_ok'] else 'НЕ пройдена'} — "
+        f"уникальных дат {dates} и строк {rows} на артикул, "
+        f"{'дублей дневных строк нет' if no_duplicates else 'число строк не совпало с числом дат — возможны дубли'}, "
+        f"сегодня {period['today_excluded']} исключена."
+    ]
+    if period["problems"]:
+        lines.append("Проблемы проверки: " + "; ".join(period["problems"]))
+    return lines
+
+
 def methodology_lines(period: dict[str, Any], stats: dict[str, Any], order: list[int],
                       rows: list[dict[str, Any]], buyout: dict[str, Any]) -> list[str]:
     """Текст листа «Методология» — определения и обоснования."""
@@ -321,16 +369,17 @@ def methodology_lines(period: dict[str, Any], stats: dict[str, Any], order: list
         f"Источник: POST {FUNNEL_ENDPOINT}, aggregationLevel=day.",
         f"Артикулы: {', '.join(str(nm) for nm in order)}.",
         f"Дата выгрузки: {datetime.now(MOSCOW_TZ).isoformat(timespec='seconds')}.",
-        f"Проверка периода: {'ок' if period.get('check_ok') else 'проблемы'} — по каждому артикулу "
-        f"{period['days']} уникальных дат, сегодняшней нет.",
+        *period_lines(period),
         "",
         "2. Определения показателей",
-        "Показы = openCount (открытия карточки). Выбор подтверждён тождеством "
-        "round(cartCount / openCount * 100) = addToCartConversion: оно выполнилось на "
-        "21 из 21 дневных записей и не выполнилось ни для одного другого поля-кандидата.",
+        f"Показы = {stats['shows_field']['field']} (открытия карточки). Обоснование выбора из "
+        f"момента сбора: {stats['shows_field']['rationale']}",
         "CR день = Заказы, шт / Показы (колонка M листа «Сырые данные»).",
         "CR среднее, CR мин, CR макс = по дневным значениям CR без промежуточного округления: "
         "среднее — среднее арифметическое дневных CR за период, а не отношение сумм за период.",
+        f"Если у артикула нет ни одного дня с числовым CR (показы нулевые во всех днях), в "
+        f"CR среднее, CR мин и CR макс стоит «{EMPTY_DASH}»: без проверки MINIFS/MAXIFS вернули "
+        f"бы 0 как данные, поэтому формулы сначала считают число строк с числовым CR.",
         f"Средний чек = Сумма заказов, ₽ / Заказы, шт. При нулевых заказах — «{EMPTY_DASH}» (деления на ноль нет).",
         "Выкупы, шт и Выкупы, ₽ = buyoutCount и buyoutSum из API, суммируются за период.",
         "",
@@ -351,18 +400,29 @@ def methodology_lines(period: dict[str, Any], stats: dict[str, Any], order: list
         "",
         "6. Как устроены листы",
         "«Сырые данные» — по строке на артикул×день, метрики как пришли из API, колонка M — расчётная.",
-        "«Сводная» — по строке на артикул плюс строка ИТОГО; все числа считаются формулами "
-        "(SUMIFS, AVERAGEIFS, MINIFS, MAXIFS, SPARKLINE) по листу «Сырые данные».",
+        "«Сводная» — по строке на артикул плюс строка ИТОГО; все числа считаются формулами по "
+        "листу «Сырые данные»: построчные агрегаты — SUMIFS/AVERAGEIFS/MINIFS/MAXIFS/SPARKLINE "
+        "по целым столбцам с фильтром по артикулу, ИТОГО — SUM/AVERAGE/MIN/MAX тоже по целым "
+        "столбцам. Жёстких диапазонов вида C2:C4 или M2:M22 в ИТОГО нет намеренно: новый "
+        "артикул или новый день попадает в сумму автоматически, и итог не может разойтись со "
+        "строками артикулов.",
     ]
 
 
 def build_period_meta(stats: dict[str, Any]) -> dict[str, Any]:
-    check = stats["period_check"]["period"]
+    """Данные проверки периода для листа «Методология» — без литералов в тексте."""
+    check = stats["period_check"]
+    period = check["period"]
+    entries = check["articles"].values()
     return {
-        "begin": check["begin"],
-        "end": check["end"],
-        "days": check["days"],
-        "check_ok": stats["period_check"]["ok"],
+        "begin": period["begin"],
+        "end": period["end"],
+        "days": period["days"],
+        "check_ok": check["ok"],
+        "today_excluded": check["today_excluded"],
+        "unique_dates_per_article": sorted({entry["unique_dates"] for entry in entries}),
+        "rows_per_article": sorted({entry.get("rows", entry["unique_dates"]) for entry in entries}),
+        "problems": list(check.get("problems", [])),
     }
 
 
@@ -375,15 +435,25 @@ def expected_metrics(stats: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return expected
 
 
-def compare_metric(name: str, actual: Any, expected: float, kind: str) -> dict[str, Any]:
-    """Сверка одного числа: целые и рубли строго, средние — с допуском 0.01."""
+def compare_metric(name: str, actual: Any, expected: float | None, kind: str) -> dict[str, Any]:
+    """Сверка одного числа: целые и рубли строго, средние — с допуском 0.01.
+
+    `expected=None` — это осознанный null сбора (нет заказов или нет показов);
+    тогда правильный ответ таблицы — «—», а не число.
+    """
     entry: dict[str, Any] = {"metric": name, "table": actual, "expected": expected, "kind": kind}
+
+    if expected is None:
+        entry.update(ok=actual == EMPTY_DASH, diff=None,
+                     note=f"ожидание «{EMPTY_DASH}», в таблице {actual!r}")
+        return entry
 
     if actual is None or isinstance(actual, str):
         entry.update(ok=False, diff=None, note=f"в таблице не число: {actual!r}")
         return entry
 
     value = float(actual)
+    expected = float(expected)
     if kind == "cr_fraction":
         table_percent = value * 100
         diff = abs(table_percent - expected)
@@ -451,7 +521,7 @@ def verify_summary(values: list[list[Any]], formulas: list[list[Any]], stats: di
         for column, name, expected_key, kind in SUMMARY_COLUMN_METRICS:
             index = ord(column) - ord("A")
             actual = row[index] if len(row) > index else None
-            result = compare_metric(f"{key}: {name}", actual, float(expected[expected_key]), kind)
+            result = compare_metric(f"{key}: {name}", actual, expected[expected_key], kind)
             result["row"] = offset + FIRST_DATA_ROW
             checks.append(result)
             if not result["ok"]:
@@ -682,6 +752,14 @@ def main() -> None:
 
     rows = load_funnel_rows()
     stats = load_stats()
+    if not stats["period_check"]["ok"]:
+        logger.error("Проверка периода в funnel_stats.json не пройдена: %s",
+                     stats["period_check"]["problems"])
+        logger.error("Таблицу не обновляю — публиковать цифры с неверным периодом нельзя. "
+                     "Пересобери данные: python fetch_sales_funnel.py")
+        sys.exit(1)
+    logger.info("Проверка периода из funnel_stats.json пройдена, публикую")
+
     names = load_product_names()
     order = article_order(stats)
     logger.info("Порядок артикулов по сумме выкупов ₽ (убывание): %s",
@@ -695,7 +773,7 @@ def main() -> None:
     logger.info("Локаль таблицы %s — аргументы формул через «%s»", spreadsheet.locale, sep)
 
     raw_block = build_raw_block(rows, order, sep)
-    summary_block = build_summary_block(order, names, len(rows), sep)
+    summary_block = build_summary_block(order, names, sep)
     method_block = [[line] for line in methodology_lines(build_period_meta(stats), stats, order, rows, buyout)]
 
     sheets = prepare_worksheets(spreadsheet)

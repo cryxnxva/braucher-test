@@ -1,5 +1,6 @@
 """Unit-тесты сборки выгрузки в Google Таблицу. Сети нет — только чистые функции."""
 
+from pathlib import Path
 from typing import Any
 
 import upload_to_sheets as up
@@ -30,9 +31,20 @@ def metrics(shows: int, orders_count: int, orders_sum: int, buyout_count: int,
 def make_stats() -> dict[str, Any]:
     """Два артикула: у первого выкупы больше, поэтому он идёт первой строкой."""
     stats = {
+        "shows_field": {
+            "field": "openCount",
+            "rationale": "round(cartCount / openCount * 100) == addToCartConversion "
+                         "выполнилось на 14 из 14 дневных записей",
+        },
         "period_check": {
             "period": {"begin": "2026-09-23", "end": "2026-09-29", "days": 7},
             "ok": True,
+            "today_excluded": "2026-09-30",
+            "problems": [],
+            "articles": {
+                "111": {"unique_dates": 7, "rows": 7, "duplicate_dates": []},
+                "222": {"unique_dates": 7, "rows": 7, "duplicate_dates": []},
+            },
         },
         "articles": {
             "111": metrics(1000, 40, 40000, 30, 30000, 1000.0, 4.0, 2.0, 6.0),
@@ -131,27 +143,35 @@ def test_summary_formulas_reference_raw_sheet() -> None:
     assert formulas[4] == "=SUMIFS('Сырые данные'!H:H,'Сырые данные'!A:A,A2)"
     assert formulas[5] == '=IF(D2=0,"—",E2/D2)'
     assert formulas[6] == '=IFERROR(AVERAGEIFS(\'Сырые данные\'!M:M,\'Сырые данные\'!A:A,A2),"—")'
-    assert formulas[7] == '=IFERROR(MINIFS(\'Сырые данные\'!M:M,\'Сырые данные\'!A:A,A2),"—")'
-    assert formulas[8] == '=IFERROR(MAXIFS(\'Сырые данные\'!M:M,\'Сырые данные\'!A:A,A2),"—")'
+    # MINIFS/MAXIFS при отсутствии числовых совпадений дают 0, а не ошибку,
+    # поэтому «—» обеспечивает страховка: подсчёт строк с числовым CR.
+    assert formulas[7] == ('=IF(COUNTIFS(\'Сырые данные\'!A:A,A2,\'Сырые данные\'!M:M,">=0")=0,"—",'
+                           'MINIFS(\'Сырые данные\'!M:M,\'Сырые данные\'!A:A,A2))')
+    assert formulas[8] == ('=IF(COUNTIFS(\'Сырые данные\'!A:A,A2,\'Сырые данные\'!M:M,">=0")=0,"—",'
+                           'MAXIFS(\'Сырые данные\'!M:M,\'Сырые данные\'!A:A,A2))')
     assert formulas[9] == "=SPARKLINE(FILTER('Сырые данные'!H:H,'Сырые данные'!A:A=A2))"
 
 
-def test_total_row_formulas_sum_and_pool_daily_cr() -> None:
-    formulas = up.total_formulas(2, 3, 22)
+def test_total_row_sums_whole_columns_so_new_rows_cannot_be_missed() -> None:
+    """ИТОГО не должно зависеть от жёсткого диапазона: новый день или артикул
+    обязаны попадать в сумму автоматически."""
+    formulas = up.total_formulas(4)
 
-    assert formulas[:5] == ["=SUM(C2:C3)", "=SUM(D2:D3)", "=SUM(E2:E3)",
-                            "=SUM(F2:F3)", "=SUM(G2:G3)"]
+    assert formulas[:5] == ["=SUM('Сырые данные'!C:C)", "=SUM('Сырые данные'!E:E)",
+                            "=SUM('Сырые данные'!F:F)", "=SUM('Сырые данные'!G:G)",
+                            "=SUM('Сырые данные'!H:H)"]
     assert formulas[5] == '=IF(D4=0,"—",E4/D4)'
-    assert formulas[6] == '=IFERROR(AVERAGE(\'Сырые данные\'!M2:M22),"—")'
-    assert formulas[7] == "=MIN('Сырые данные'!M2:M22)"
-    assert formulas[8] == "=MAX('Сырые данные'!M2:M22)"
+    assert formulas[6] == '=IFERROR(AVERAGE(\'Сырые данные\'!M:M),"—")'
+    assert formulas[7] == '=IF(COUNT(\'Сырые данные\'!M:M)=0,"—",MIN(\'Сырые данные\'!M:M))'
+    assert formulas[8] == '=IF(COUNT(\'Сырые данные\'!M:M)=0,"—",MAX(\'Сырые данные\'!M:M))'
     assert formulas[9] == ""
+    assert not any("M2:M" in formula or ":C4" in formula for formula in formulas)
 
 
 def test_summary_block_lays_out_articles_then_total() -> None:
     stats = make_stats()
 
-    block = up.build_summary_block([111, 222], {111: "Товар первый", 222: "Товар второй"}, 21)
+    block = up.build_summary_block([111, 222], {111: "Товар первый", 222: "Товар второй"})
 
     assert block[0] == up.SUMMARY_HEADER
     assert [row[0] for row in block[1:]] == [111, 222, up.TOTAL_LABEL]
@@ -285,6 +305,29 @@ def test_methodology_text_carries_definitions_and_caveats() -> None:
     assert "buyoutPercent" in text
     assert "по сумме выкупов ₽ по убыванию" in text
     assert "sales-funnel/products/history" in text
+    # обоснование выбора поля показов приходит из funnel_stats.json, а не вшито литералом
+    assert "14 из 14 дневных записей" in text
+    assert "21 из 21" not in text
+    assert "уникальных дат 7 и строк 7 на артикул" in text
+    assert "дублей дневных строк нет" in text
+    assert "сегодня 2026-09-30 исключена" in text
+    assert "SUM/AVERAGE/MIN/MAX тоже по целым" in text
+
+
+def test_methodology_reports_period_problems_verbatim() -> None:
+    stats = make_stats()
+    stats["period_check"]["ok"] = False
+    stats["period_check"]["problems"] = ["222: строк 8 при 7 уникальных датах"]
+    stats["period_check"]["articles"]["222"]["rows"] = 8
+    rows = [funnel_row(111, "2026-09-23", 100)]
+
+    text = "\n".join(up.methodology_lines(up.build_period_meta(stats), stats,
+                                        up.article_order(stats), rows,
+                                        up.buyout_percent_semantics(rows)))
+
+    assert "НЕ пройдена" in text
+    assert "строк 8 при 7 уникальных датах" in text
+    assert "возможны дубли" in text
 
 
 def test_sorting_note_explains_inversion_against_order_count() -> None:
@@ -321,7 +364,10 @@ def test_formulas_can_be_built_with_semicolon_separator() -> None:
     assert up.summary_formulas(2, ";")[0] == "=SUMIFS('Сырые данные'!C:C;'Сырые данные'!A:A;A2)"
     assert up.summary_formulas(2, ";")[5] == '=IF(D2=0;"—";E2/D2)'
     assert up.summary_formulas(2, ";")[6] == '=IFERROR(AVERAGEIFS(\'Сырые данные\'!M:M;\'Сырые данные\'!A:A;A2);"—")'
-    assert up.total_formulas(2, 3, 22, ";")[6] == '=IFERROR(AVERAGE(\'Сырые данные\'!M2:M22);"—")'
+    assert up.summary_formulas(2, ";")[7] == ('=IF(COUNTIFS(\'Сырые данные\'!A:A;A2;\'Сырые данные\'!M:M;">=0")=0;"—";'
+                                              'MINIFS(\'Сырые данные\'!M:M;\'Сырые данные\'!A:A;A2))')
+    assert up.total_formulas(5, ";")[6] == '=IFERROR(AVERAGE(\'Сырые данные\'!M:M);"—")'
+    assert up.total_formulas(5, ";")[7] == '=IF(COUNT(\'Сырые данные\'!M:M)=0;"—";MIN(\'Сырые данные\'!M:M))'
 
     row = funnel_row(111, "2026-09-23", 100)
     assert up.raw_row_values(row, 2, ";")[12] == '=IF(C2=0;"";E2/C2)'
@@ -336,3 +382,78 @@ def test_column_letter_and_flatten_expected() -> None:
 
     assert flat["cr_avg"] == 4.0 and flat["cr_min"] == 2.0 and flat["cr_max"] == 6.0
     assert "cr_percent" not in flat
+
+
+def test_verify_summary_expects_dash_where_metrics_are_null() -> None:
+    """Нулевой артикул: ожидание None означает «—» в таблице, а не 0 и не крах сверки."""
+    stats = make_stats()
+    zero = stats["articles"]["222"]
+    for key in ("shows", "orders_count", "orders_sum", "buyout_count", "buyout_sum"):
+        zero[key] = 0
+    zero["avg_check"] = None
+    zero["cr_percent"].update({"avg": None, "min": None, "max": None,
+                               "days_counted": 0, "days_with_zero_shows": 7})
+    order = up.article_order(stats)
+
+    body = [["Артикул", "Товар", *up.SUMMARY_HEADER[2:]],
+            summary_row(111, stats["articles"]["111"]),
+            [222, "Коврик", 0, 0, 0, 0, 0, up.EMPTY_DASH, up.EMPTY_DASH,
+             up.EMPTY_DASH, up.EMPTY_DASH, ""],
+            summary_row(up.TOTAL_LABEL, stats["grand_total"])]
+
+    report = up.verify_summary(body, formula_body(body), stats, order)
+
+    assert report["ok"] is True, report["problems"]
+
+    body[2][7] = 0.0
+    assert up.verify_summary(body, formula_body(body), stats, order)["ok"] is False
+
+
+def test_buyout_percent_without_checkable_rows_says_so() -> None:
+    result = up.buyout_percent_semantics(
+        [{"orderCount": 0, "buyoutCount": 0, "orderSum": 0, "buyoutSum": 0, "buyoutPercent": 0}]
+    )
+
+    assert result["checked"] == 0
+    assert "проверить не на чём" in result["conclusion"]
+    assert "0 из 0" not in result["conclusion"]
+
+
+def test_buyout_percent_when_both_formulas_match_is_not_called_unreproducible() -> None:
+    result = up.buyout_percent_semantics(
+        [{"orderCount": 10, "buyoutCount": 5, "orderSum": 100, "buyoutSum": 50, "buyoutPercent": 50}]
+    )
+
+    assert result["matched_both"] == 1
+    assert "совпадает с обеими формулами" in result["conclusion"]
+    assert "не воспроизводится" not in result["conclusion"]
+
+
+def test_article_order_breaks_ties_by_article_number() -> None:
+    """Равные суммы выкупов не должны зависеть от порядка ключей в JSON."""
+    stats = make_stats()
+    stats["articles"]["222"]["buyout_sum"] = stats["articles"]["111"]["buyout_sum"]
+
+    assert up.article_order(stats) == [111, 222]
+
+    reordered = {key: stats["articles"][key] for key in ("222", "111")}
+    stats["articles"] = reordered
+    assert up.article_order(stats) == [111, 222]
+
+
+def test_load_funnel_rows_accepts_fractional_api_percents(tmp_path: Path) -> None:
+    """Дробный процент из API не должен ронять загрузку: метрики процентов — float."""
+    path = tmp_path / "funnel.csv"
+    path.write_text(
+        "nm_id,date,openCount,cartCount,orderCount,orderSum,buyoutCount,buyoutSum,"
+        "buyoutPercent,addToCartConversion,cartToOrderConversion,addToWishlistCount\n"
+        "111,2026-09-23,100,10,4,1000,2,500,66.67,10.0,40.0,5\n",
+        encoding="utf-8-sig",
+    )
+
+    rows = up.load_funnel_rows(path)
+
+    assert rows[0]["buyoutPercent"] == 66.67
+    assert rows[0]["addToCartConversion"] == 10.0
+    assert rows[0]["orderSum"] == 1000
+    assert rows[0]["addToWishlistCount"] == 5
